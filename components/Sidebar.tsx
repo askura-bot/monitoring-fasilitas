@@ -5,7 +5,7 @@ import { CATEGORIES, MIN_RADIUS, MAX_RADIUS } from '@/lib/constants';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Hospital, Train, Bus, Plane, Fuel, Camera, Wrench, MapPin, X } from 'lucide-react';
+import { Shield, Hospital, Train, Bus, Plane, Fuel, Camera, Wrench, Landmark, MapPin, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -29,6 +29,7 @@ const iconMap: Record<string, any> = {
   fuel: Fuel,
   camera: Camera,
   wrench: Wrench,
+  landmark: Landmark,
 };
 
 export default function Sidebar({

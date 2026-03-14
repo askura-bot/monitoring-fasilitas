@@ -10,6 +10,8 @@ interface CategoryQuery {
   id: string;
   name: string;
   osmTags: OSMTag[];
+  // Jika true, query way juga (untuk fasilitas besar seperti bandara, stasiun)
+  includeWay?: boolean;
 }
 
 async function queryOverpass(query: string): Promise<any> {
@@ -20,21 +22,11 @@ async function queryOverpass(query: string): Promise<any> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body,
-        headers,
-        signal: controller.signal,
-      });
-
+      const response = await fetch(endpoint, { method: 'POST', body, headers, signal: controller.signal });
       clearTimeout(timeoutId);
-
-      if (response.ok) {
-        return await response.json();
-      }
-    } catch (err: any) {
-      // silent — lanjut ke endpoint berikutnya
+      if (response.ok) return await response.json();
+    } catch {
+      // silent, coba endpoint berikutnya
     }
   }
 
@@ -48,29 +40,38 @@ export async function fetchMultipleCategoryFacilities(
   categories: CategoryQuery[]
 ): Promise<Facility[]> {
   const radiusMeters = radius * 1000;
-
   const tagQueryLines: string[] = [];
+
   for (const category of categories) {
     for (const tag of category.osmTags) {
+      // Selalu query node
       tagQueryLines.push(
         `node["${tag.key}"="${tag.value}"](around:${radiusMeters},${lat},${lon});`
       );
+      // Query way hanya untuk kategori yang includeWay = true
+      if (category.includeWay) {
+        tagQueryLines.push(
+          `way["${tag.key}"="${tag.value}"](around:${radiusMeters},${lat},${lon});`
+        );
+      }
     }
   }
 
+  // Gunakan "out center" agar way punya koordinat (titik tengah area)
   const query = `[out:json][timeout:25];
 (
   ${tagQueryLines.join('\n  ')}
 );
-out 100;`;
+out center 100;`;
 
   try {
     const data = await queryOverpass(query);
     const facilities: Facility[] = [];
 
     for (const element of data.elements) {
-      const elLat = element.lat;
-      const elLon = element.lon;
+      // node → lat/lon langsung | way → ambil dari center
+      const elLat = element.lat ?? element.center?.lat;
+      const elLon = element.lon ?? element.center?.lon;
 
       if (elLat == null || elLon == null) continue;
       if (!element.tags) continue;
@@ -79,8 +80,6 @@ out 100;`;
       if (!matchedCategory) continue;
 
       const tags = element.tags;
-
-      // Susun alamat lengkap dari komponen OSM yang tersedia
       const addressParts = [
         tags['addr:street'],
         tags['addr:housenumber'],
@@ -88,23 +87,19 @@ out 100;`;
         tags['addr:city'],
       ].filter(Boolean);
 
-      const address =
-        tags['addr:full'] ||
-        (addressParts.length > 0 ? addressParts.join(', ') : '');
-
       facilities.push({
         id: `${matchedCategory.id}-${element.id}`,
-        name: tags?.name || `Unnamed ${matchedCategory.name}`,
+        name: tags.name || `Unnamed ${matchedCategory.name}`,
         category: matchedCategory.name,
         categoryId: matchedCategory.id,
         lat: elLat,
         lon: elLon,
-        address,
-        type: tags?.type || '',
-        phone: tags?.phone || tags?.['contact:phone'] || '',
-        openingHours: tags?.opening_hours || '',
-        website: tags?.website || tags?.['contact:website'] || '',
-        operator: tags?.operator || '',
+        address: tags['addr:full'] || (addressParts.length > 0 ? addressParts.join(', ') : ''),
+        type: tags.type || '',
+        phone: tags.phone || tags['contact:phone'] || '',
+        openingHours: tags.opening_hours || '',
+        website: tags.website || tags['contact:website'] || '',
+        operator: tags.operator || '',
       });
     }
 
@@ -121,9 +116,7 @@ function findMatchingCategory(
 ): CategoryQuery | null {
   for (const category of categories) {
     for (const osmTag of category.osmTags) {
-      if (tags[osmTag.key] === osmTag.value) {
-        return category;
-      }
+      if (tags[osmTag.key] === osmTag.value) return category;
     }
   }
   return null;
