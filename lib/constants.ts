@@ -18,9 +18,9 @@ export const CATEGORIES: Category[] = [
     color: '#ef4444',
     osmTags: [
       { key: 'amenity', value: 'hospital' },
-      // { key: 'amenity', value: 'clinic' },
+      { key: 'amenity', value: 'clinic' },
     ],
-    includeWay: true, // rumah sakit besar sering berupa area
+    includeWay: true,
   },
   {
     id: 'station',
@@ -31,7 +31,7 @@ export const CATEGORIES: Category[] = [
       { key: 'railway', value: 'station' },
       { key: 'railway', value: 'halt' },
     ],
-    includeWay: true, // stasiun besar bisa berupa area
+    includeWay: true,
   },
   {
     id: 'terminal',
@@ -42,7 +42,7 @@ export const CATEGORIES: Category[] = [
       { key: 'amenity', value: 'bus_station' },
       { key: 'highway', value: 'bus_stop' },
     ],
-    includeWay: true, // terminal bus sering berupa area
+    includeWay: true,
   },
   {
     id: 'airport',
@@ -50,7 +50,7 @@ export const CATEGORIES: Category[] = [
     icon: 'plane',
     color: '#06b6d4',
     osmTags: [{ key: 'aeroway', value: 'aerodrome' }],
-    includeWay: true, // ← bandara SELALU berupa area (way), bukan node
+    includeWay: true,
   },
   {
     id: 'fuel',
@@ -58,7 +58,6 @@ export const CATEGORIES: Category[] = [
     icon: 'fuel',
     color: '#10b981',
     osmTags: [{ key: 'amenity', value: 'fuel' }],
-    // SPBU biasanya node, tidak perlu includeWay
   },
   {
     id: 'tourist',
@@ -70,7 +69,7 @@ export const CATEGORIES: Category[] = [
       { key: 'tourism', value: 'museum' },
       { key: 'tourism', value: 'viewpoint' },
     ],
-    includeWay: true, // objek wisata bisa berupa area
+    includeWay: true,
   },
   {
     id: 'workshop',
@@ -89,7 +88,7 @@ export const CATEGORIES: Category[] = [
     icon: 'landmark',
     color: '#0ea5e9',
     osmTags: [{ key: 'amenity', value: 'place_of_worship' }],
-    includeWay: true, // masjid/gereja besar sering berupa area
+    includeWay: true,
   },
 ];
 
@@ -98,3 +97,6 @@ export const DEFAULT_ZOOM = 13;
 export const MIN_RADIUS = 1;
 export const MAX_RADIUS = 20;
 export const DEFAULT_RADIUS = 2;
+
+// ← Kosong: tidak ada kategori yang dipilih saat pertama buka
+export const DEFAULT_SELECTED_CATEGORIES: string[] = [];

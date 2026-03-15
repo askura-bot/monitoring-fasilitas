@@ -5,7 +5,10 @@ import { CATEGORIES, MIN_RADIUS, MAX_RADIUS } from '@/lib/constants';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Hospital, Train, Bus, Plane, Fuel, Camera, Wrench, Landmark, MapPin, X } from 'lucide-react';
+import {
+  Shield, Hospital, Brain as Train, Bus, Plane,
+  Fuel, Camera, Wrench, Landmark, MapPin, X, Search
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -18,6 +21,7 @@ interface SidebarProps {
   onRefresh: () => void;
   isMobileOpen: boolean;
   onMobileClose: () => void;
+  hasSearched: boolean; // ← prop baru
 }
 
 const iconMap: Record<string, any> = {
@@ -42,7 +46,10 @@ export default function Sidebar({
   onRefresh,
   isMobileOpen,
   onMobileClose,
+  hasSearched,
 }: SidebarProps) {
+  const noneSelected = selectedCategories.length === 0;
+
   return (
     <>
       <div
@@ -64,17 +71,13 @@ export default function Sidebar({
             <MapPin className="h-5 w-5 text-blue-600" />
             <h1 className="text-xl font-bold">Facility Monitor</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={onMobileClose}
-          >
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Radius */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-gray-700">Search Radius</h2>
@@ -94,13 +97,24 @@ export default function Sidebar({
             </div>
           </div>
 
+          {/* Kategori */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-gray-700">Categories</h2>
-              <Badge variant="outline">
-                {selectedCategories.length} selected
+              <Badge variant={noneSelected ? 'destructive' : 'outline'}>
+                {noneSelected ? 'Belum dipilih' : `${selectedCategories.length} dipilih`}
               </Badge>
             </div>
+
+            {/* Hint jika belum ada yang dipilih */}
+            {noneSelected && (
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Pilih minimal satu kategori lalu klik <strong>"Cari Fasilitas"</strong> untuk mulai pencarian.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               {CATEGORIES.map((category) => {
                 const Icon = iconMap[category.icon];
@@ -118,9 +132,7 @@ export default function Sidebar({
                     )}
                     style={{
                       color: isSelected ? category.color : undefined,
-                      backgroundColor: isSelected
-                        ? `${category.color}10`
-                        : 'white',
+                      backgroundColor: isSelected ? `${category.color}10` : 'white',
                     }}
                   >
                     <div
@@ -129,26 +141,45 @@ export default function Sidebar({
                     >
                       <Icon className="h-5 w-5" style={{ color: category.color }} />
                     </div>
-                    <span className="flex-1 text-left text-sm font-medium">
+                    <span className="flex-1 text-left text-sm font-medium text-gray-700">
                       {category.name}
                     </span>
+                    {isSelected && (
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="pt-4 border-t">
+          {/* Tombol search + info */}
+          <div className="pt-4 border-t space-y-2">
             <Button
               onClick={onRefresh}
-              disabled={isLoading || selectedCategories.length === 0}
-              className="w-full"
+              disabled={isLoading || noneSelected}
+              className="w-full flex items-center gap-2"
             >
-              {isLoading ? 'Searching...' : 'Search This Area'}
+              <Search className="h-4 w-4" />
+              {isLoading ? 'Mencari...' : noneSelected ? 'Pilih Kategori Dulu' : 'Cari Fasilitas'}
             </Button>
-            <p className="text-xs text-center text-gray-500 mt-2">
-              {facilityCount} facilities found
-            </p>
+
+            {hasSearched && !isLoading && (
+              <p className="text-xs text-center text-gray-500">
+                {facilityCount > 0
+                  ? `${facilityCount} fasilitas ditemukan`
+                  : 'Tidak ada fasilitas ditemukan'}
+              </p>
+            )}
+
+            {!hasSearched && !noneSelected && (
+              <p className="text-xs text-center text-blue-500">
+                Klik "Cari Fasilitas" untuk mulai pencarian
+              </p>
+            )}
           </div>
         </div>
       </div>

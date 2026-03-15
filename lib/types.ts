@@ -1,3 +1,4 @@
+// lib/types.ts
 export interface Facility {
   id: string;
   name: string;
