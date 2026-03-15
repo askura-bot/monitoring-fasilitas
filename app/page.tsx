@@ -4,16 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Facility, UserLocation } from '@/lib/types';
 import {
-  CATEGORIES,
-  DEFAULT_CENTER,
-  DEFAULT_ZOOM,
-  DEFAULT_RADIUS,
-  DEFAULT_SELECTED_CATEGORIES,
+  CATEGORIES, DEFAULT_CENTER, DEFAULT_ZOOM,
+  DEFAULT_RADIUS, DEFAULT_SELECTED_CATEGORIES,
 } from '@/lib/constants';
 import { fetchMultipleCategoryFacilities } from '@/lib/overpass';
 import { supabase } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
+import AddFacilityModal from '@/components/AddFacilityModal';
 import { Button } from '@/components/ui/button';
 import { Menu, Loader as Loader2, CircleAlert as AlertCircle, Layers } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,9 +26,7 @@ export default function Home() {
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [mapZoom] = useState(DEFAULT_ZOOM);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    DEFAULT_SELECTED_CATEGORIES
-  );
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(DEFAULT_SELECTED_CATEGORIES);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(true);
@@ -38,15 +34,27 @@ export default function Home() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // State OSM login
+  const [isOsmLoggedIn, setIsOsmLoggedIn] = useState(false);
+
+  // State fitur tambah/edit lokasi
+  const [isPickingLocation, setIsPickingLocation] = useState(false);
+  const [pendingCoords, setPendingCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingFacility, setEditingFacility] = useState<any | null>(null);
+
+  // Cek status login OSM dari cookie
+  useEffect(() => {
+    const cookie = document.cookie.split('; ').find((c) => c.startsWith('osm_user='));
+    setIsOsmLoggedIn(!!cookie);
+  }, []);
+
   // Ambil lokasi user
   useEffect(() => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const location = {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-          };
+          const location = { lat: position.coords.latitude, lon: position.coords.longitude };
           setUserLocation(location);
           setMapCenter([location.lat, location.lon]);
           setIsGettingLocation(false);
@@ -62,14 +70,12 @@ export default function Home() {
     }
   }, []);
 
-  // Auto-search saat radius berubah — hanya jika sudah pernah search
   useEffect(() => {
     if (!hasSearched || selectedCategories.length === 0) return;
     const timer = setTimeout(() => { fetchFacilitiesData(); }, 500);
     return () => clearTimeout(timer);
   }, [radius]);
 
-  // Auto-search saat kategori berubah — hanya jika sudah pernah search
   useEffect(() => {
     if (!hasSearched) return;
     if (selectedCategories.length === 0) { setFacilities([]); return; }
@@ -77,34 +83,16 @@ export default function Home() {
   }, [selectedCategories]);
 
   const fetchFacilitiesData = useCallback(async () => {
-    if (!userLocation || selectedCategories.length === 0) {
-      setFacilities([]);
-      return;
-    }
-
+    if (!userLocation || selectedCategories.length === 0) { setFacilities([]); return; }
     setIsLoading(true);
     setError(null);
-
     try {
-      const categoriesToFetch = CATEGORIES.filter((cat) =>
-        selectedCategories.includes(cat.id)
-      );
-
+      const categoriesToFetch = CATEGORIES.filter((cat) => selectedCategories.includes(cat.id));
       const [osmFacilities, supabaseResult] = await Promise.all([
-        fetchMultipleCategoryFacilities(
-          userLocation.lat,
-          userLocation.lon,
-          radius,
-          categoriesToFetch
-        ),
+        fetchMultipleCategoryFacilities(userLocation.lat, userLocation.lon, radius, categoriesToFetch),
         supabase.from('custom_facilities').select('*'),
       ]);
-
-      const taggedOsm: Facility[] = osmFacilities.map((f) => ({
-        ...f,
-        source: 'osm' as const,
-      }));
-
+      const taggedOsm: Facility[] = osmFacilities.map((f) => ({ ...f, source: 'osm' as const }));
       const customFacilities: Facility[] = (supabaseResult.data || [])
         .filter((f) => selectedCategories.includes(f.category_id))
         .map((f) => ({
@@ -122,8 +110,9 @@ export default function Home() {
           note: f.note || '',
           source: 'custom' as const,
           notInOsm: f.not_in_osm,
+          // Simpan raw id Supabase untuk edit/delete
+          supabaseId: f.id,
         }));
-
       setFacilities([...customFacilities, ...taggedOsm]);
       setHasSearched(true);
     } catch (err) {
@@ -136,16 +125,55 @@ export default function Home() {
 
   const handleCategoryToggle = useCallback((categoryId: string) => {
     setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     );
   }, []);
 
   const handleRadiusChange = useCallback((newRadius: number) => setRadius(newRadius), []);
   const handleRefresh = useCallback(() => fetchFacilitiesData(), [fetchFacilitiesData]);
 
-  const showSelectPrompt = !isGettingLocation && !hasSearched && selectedCategories.length === 0 && !isMobileSidebarOpen;
+  const handleAddLocationClick = useCallback(() => {
+    setIsMobileSidebarOpen(false);
+    setIsPickingLocation(true);
+  }, []);
+
+  const handleLocationPicked = useCallback((lat: number, lon: number) => {
+    setPendingCoords({ lat, lon });
+    setIsPickingLocation(false);
+    setShowAddModal(true);
+  }, []);
+
+  const handleCancelPicking = useCallback(() => {
+    setIsPickingLocation(false);
+    setPendingCoords(null);
+  }, []);
+
+  // Buka modal edit dengan data fasilitas yang dipilih
+  const handleEditFacility = useCallback((facility: Facility) => {
+    const uuid = facility.id.replace('custom-', '');
+    setEditingFacility({
+      id: uuid,
+      name: facility.name,
+      category: facility.category,
+      category_id: facility.categoryId ?? '',
+      lat: facility.lat,
+      lon: facility.lon,
+      address: facility.address ?? '',
+      phone: facility.phone ?? '',
+      opening_hours: facility.openingHours ?? '',
+      operator: facility.operator ?? '',
+      note: facility.note ?? '',
+      not_in_osm: facility.notInOsm ?? false,
+    });
+    setShowAddModal(true);
+  }, []);
+
+  // Hapus fasilitas dari state lokal setelah delete berhasil
+  const handleDeleteFacility = useCallback((facility: Facility) => {
+    setFacilities((prev) => prev.filter((f) => f.id !== facility.id));
+  }, []);
+
+  const showSelectPrompt = !isGettingLocation && !hasSearched && selectedCategories.length === 0 && !isMobileSidebarOpen && !isPickingLocation;
   const showEmptyResult = hasSearched && facilities.length === 0 && !isLoading && selectedCategories.length > 0;
 
   return (
@@ -161,23 +189,31 @@ export default function Home() {
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
         hasSearched={hasSearched}
+        onAddLocation={handleAddLocationClick}
       />
 
       <div className="flex-1 relative">
-        {/* Tombol mobile sidebar */}
         <Button
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="absolute top-4 left-4 z-[1000] lg:hidden shadow-lg"
+          className="absolute top-4 right-4 z-[1000] lg:hidden shadow-lg"
           size="icon"
         >
           <Menu className="h-5 w-5" />
         </Button>
 
-        {error && (
-          <Alert
+        {isPickingLocation && (
+          <Button
+            onClick={handleCancelPicking}
             variant="destructive"
-            className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] max-w-md"
+            size="sm"
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] shadow-lg"
           >
+            ✕ Batal Pilih Lokasi
+          </Button>
+        )}
+
+        {error && (
+          <Alert variant="destructive" className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] max-w-md">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -198,51 +234,45 @@ export default function Home() {
             facilities={facilities}
             userLocation={userLocation}
             radius={radius}
+            isPickingLocation={isPickingLocation}
+            onLocationPicked={handleLocationPicked}
+            isOsmLoggedIn={isOsmLoggedIn}
+            onEditFacility={handleEditFacility}
+            onDeleteFacility={handleDeleteFacility}
           />
         )}
 
-        {/* Banner: belum pilih kategori */}
         {showSelectPrompt && (
           <div className="absolute inset-0 flex items-center justify-center z-[500] pointer-events-none">
             <div className="bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm text-center pointer-events-auto border border-gray-100">
               <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Layers className="h-7 w-7 text-blue-600" />
               </div>
-              <h2 className="text-lg font-bold text-gray-800 mb-2">
-                Pilih Kategori Fasilitas
-              </h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Pilih Kategori Fasilitas</h2>
               <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-                Pilih satu atau lebih kategori di panel kiri, lalu klik{' '}
+                Pilih satu atau lebih kategori di panel kanan, lalu klik{' '}
                 <span className="font-semibold text-gray-700">"Cari Fasilitas"</span>{' '}
                 untuk mencari fasilitas di sekitar lokasi Anda.
               </p>
-              <Button
-                size="sm"
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="lg:hidden w-full"
-              >
+              <Button size="sm" onClick={() => setIsMobileSidebarOpen(true)} className="lg:hidden w-full">
                 Buka Pilihan Kategori
               </Button>
               <p className="text-xs text-gray-400 mt-2 hidden lg:block">
-                Panel kategori tersedia di sebelah kiri
+                Panel kategori tersedia di sebelah kanan
               </p>
             </div>
           </div>
         )}
 
-        {/* Banner: hasil pencarian kosong */}
         {showEmptyResult && (
           <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-[1000]">
             <div className="bg-white rounded-lg shadow-lg px-5 py-3 flex items-center gap-3 border border-gray-100">
               <span className="text-xl">🔍</span>
-              <p className="text-sm text-gray-600">
-                Tidak ada fasilitas ditemukan di area ini.
-              </p>
+              <p className="text-sm text-gray-600">Tidak ada fasilitas ditemukan di area ini.</p>
             </div>
           </div>
         )}
 
-        {/* Loading indicator */}
         {isLoading && !isGettingLocation && (
           <div className="absolute bottom-4 right-4 z-[1000] bg-white rounded-lg shadow-lg p-4 flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
@@ -250,6 +280,26 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Modal tambah / edit lokasi */}
+      {showAddModal && (
+        <AddFacilityModal
+          prefilledLat={pendingCoords?.lat}
+          prefilledLon={pendingCoords?.lon}
+          editingData={editingFacility}
+          onSuccess={() => {
+            setShowAddModal(false);
+            setPendingCoords(null);
+            setEditingFacility(null);
+            fetchFacilitiesData();
+          }}
+          onClose={() => {
+            setShowAddModal(false);
+            setPendingCoords(null);
+            setEditingFacility(null);
+          }}
+        />
+      )}
     </div>
   );
 }

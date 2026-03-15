@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Shield, Hospital, Brain as Train, Bus, Plane,
-  Fuel, Camera, Wrench, Landmark, MapPin, X, Search
+  Fuel, Camera, Wrench, Landmark, Siren, MapPin, X, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import OsmLoginButton from '@/components/OsmLoginButton';
@@ -22,6 +22,7 @@ interface SidebarProps {
   isMobileOpen: boolean;
   onMobileClose: () => void;
   hasSearched: boolean;
+  onAddLocation: () => void; // ← prop baru untuk tambah lokasi
 }
 
 const iconMap: Record<string, any> = {
@@ -34,6 +35,7 @@ const iconMap: Record<string, any> = {
   camera: Camera,
   wrench: Wrench,
   landmark: Landmark,
+  siren: Siren,  // ← icon Pos Pam
 };
 
 export default function Sidebar({
@@ -47,6 +49,7 @@ export default function Sidebar({
   isMobileOpen,
   onMobileClose,
   hasSearched,
+  onAddLocation,
 }: SidebarProps) {
   const noneSelected = selectedCategories.length === 0;
 
@@ -67,19 +70,20 @@ export default function Sidebar({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-600" />
-            <h1 className="text-xl font-bold">Facility Monitor</h1>
+        <div className="border-b">
+          <div className="flex items-center justify-between p-4 pb-2">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-blue-600" />
+              <h1 className="text-xl font-bold">Facility Monitor</h1>
+            </div>
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose}>
+              <X className="h-5 w-5" />
+            </Button>
           </div>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-
-        {/* Login OSM */}
-        <div className="px-4 py-2 border-b bg-gray-50">
-          <OsmLoginButton />
+          {/* Login OSM + tombol tambah lokasi */}
+          <div className="px-4 pb-3">
+            <OsmLoginButton onAddLocation={onAddLocation} />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -112,12 +116,10 @@ export default function Sidebar({
               </Badge>
             </div>
 
-            {/* Hint jika belum ada yang dipilih */}
             {noneSelected && (
               <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  Pilih minimal satu kategori lalu klik{' '}
-                  <strong>"Cari Fasilitas"</strong> untuk mulai pencarian.
+                  Pilih minimal satu kategori lalu klik <strong>"Cari Fasilitas"</strong> untuk mulai pencarian.
                 </p>
               </div>
             )}
@@ -126,36 +128,27 @@ export default function Sidebar({
               {CATEGORIES.map((category) => {
                 const Icon = iconMap[category.icon];
                 const isSelected = selectedCategories.includes(category.id);
-
                 return (
                   <button
                     key={category.id}
                     onClick={() => onCategoryToggle(category.id)}
                     className={cn(
                       'w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all hover:shadow-md',
-                      isSelected
-                        ? 'border-current shadow-sm'
-                        : 'border-gray-200 hover:border-gray-300'
+                      isSelected ? 'border-current shadow-sm' : 'border-gray-200 hover:border-gray-300'
                     )}
                     style={{
                       color: isSelected ? category.color : undefined,
                       backgroundColor: isSelected ? `${category.color}10` : 'white',
                     }}
                   >
-                    <div
-                      className="p-2 rounded-md"
-                      style={{ backgroundColor: `${category.color}20` }}
-                    >
+                    <div className="p-2 rounded-md" style={{ backgroundColor: `${category.color}20` }}>
                       <Icon className="h-5 w-5" style={{ color: category.color }} />
                     </div>
                     <span className="flex-1 text-left text-sm font-medium text-gray-700">
                       {category.name}
                     </span>
                     {isSelected && (
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: category.color }}
-                      />
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
                     )}
                   </button>
                 );
@@ -176,12 +169,9 @@ export default function Sidebar({
 
             {hasSearched && !isLoading && (
               <p className="text-xs text-center text-gray-500">
-                {facilityCount > 0
-                  ? `${facilityCount} fasilitas ditemukan`
-                  : 'Tidak ada fasilitas ditemukan'}
+                {facilityCount > 0 ? `${facilityCount} fasilitas ditemukan` : 'Tidak ada fasilitas ditemukan'}
               </p>
             )}
-
             {!hasSearched && !noneSelected && (
               <p className="text-xs text-center text-blue-500">
                 Klik "Cari Fasilitas" untuk mulai pencarian

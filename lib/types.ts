@@ -1,4 +1,3 @@
-// lib/types.ts
 export interface Facility {
   id: string;
   name: string;
@@ -16,6 +15,7 @@ export interface Facility {
   source?: 'osm' | 'custom';
   notInOsm?: boolean;
   note?: string;
+  supabaseId?: string; // raw UUID dari Supabase untuk edit/delete
 }
 
 export interface Category {

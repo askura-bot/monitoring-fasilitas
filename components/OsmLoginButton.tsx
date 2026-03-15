@@ -1,38 +1,42 @@
-// components/ui/OsmLoginButton.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, User } from 'lucide-react';
+import { LogIn, LogOut, User, MapPin } from 'lucide-react';
 
 interface OsmUser {
   id: number;
   name: string;
 }
 
-export default function OsmLoginButton() {
+interface OsmLoginButtonProps {
+  onAddLocation?: () => void; // callback saat tombol "Tambah Lokasi" diklik
+}
+
+export default function OsmLoginButton({ onAddLocation }: OsmLoginButtonProps) {
   const [user, setUser] = useState<OsmUser | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    // Baca cookie osm_user
     const cookie = document.cookie
       .split('; ')
       .find((c) => c.startsWith('osm_user='));
     if (cookie) {
-      try {
-        setUser(JSON.parse(decodeURIComponent(cookie.split('=')[1])));
-      } catch {}
+      try { setUser(JSON.parse(decodeURIComponent(cookie.split('=')[1]))); } catch {}
     }
 
-    // Tampilkan notifikasi berdasarkan query param dari callback
     const login = searchParams.get('login');
     if (login === 'success') {
+      // Re-read cookie setelah login berhasil
+      const c = document.cookie.split('; ').find((c) => c.startsWith('osm_user='));
+      if (c) {
+        try { setUser(JSON.parse(decodeURIComponent(c.split('=')[1]))); } catch {}
+      }
       setToast({ msg: 'Berhasil login OSM!', type: 'success' });
-      router.replace('/'); // hapus query param dari URL
+      router.replace('/');
     } else if (login === 'cancelled') {
       setToast({ msg: 'Login dibatalkan.', type: 'info' });
       router.replace('/');
@@ -42,7 +46,6 @@ export default function OsmLoginButton() {
     }
   }, [searchParams, router]);
 
-  // Auto-hide toast setelah 3 detik
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
@@ -56,7 +59,7 @@ export default function OsmLoginButton() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       {/* Toast notifikasi */}
       {toast && (
         <div style={{
@@ -65,7 +68,7 @@ export default function OsmLoginButton() {
           border: `1px solid ${toastColors[toast.type].border}`,
           color: toastColors[toast.type].text,
           borderRadius: '6px', padding: '6px 10px',
-          fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap',
+          fontSize: '11px', fontWeight: 500,
           zIndex: 100,
         }}>
           {toast.msg}
@@ -73,30 +76,44 @@ export default function OsmLoginButton() {
       )}
 
       {user ? (
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-            <User className="h-3 w-3 text-green-600" />
-            <span className="font-medium text-green-700">{user.name}</span>
+        <div className="space-y-2">
+          {/* Info user */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs">
+              <User className="h-3 w-3 text-green-600" />
+              <span className="font-medium text-green-700 truncate max-w-[140px]">{user.name}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-2"
+              onClick={() => { window.location.href = '/api/auth/osm/logout'; }}
+            >
+              <LogOut className="h-3 w-3 mr-1" />
+              Logout
+            </Button>
           </div>
+
+          {/* Tombol tambah lokasi — hanya muncul saat login */}
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
-            onClick={() => { window.location.href = '/api/auth/osm/logout'; }}
+            className="w-full h-8 text-xs border-blue-300 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
+            onClick={onAddLocation}
           >
-            <LogOut className="h-3 w-3 mr-1" />
-            Logout
+            <MapPin className="h-3.5 w-3.5" />
+            Tambah Lokasi Baru
           </Button>
         </div>
       ) : (
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs w-full"
+          className="h-8 text-xs w-full"
           onClick={() => { window.location.href = '/api/auth/osm/login'; }}
         >
           <LogIn className="h-3 w-3 mr-1" />
-          Login OSM
+          Login OSM untuk edit &amp; tambah data
         </Button>
       )}
     </div>

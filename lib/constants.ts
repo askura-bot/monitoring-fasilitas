@@ -3,17 +3,14 @@ import { Category } from './types';
 export const CATEGORIES: Category[] = [
   {
     id: 'police',
-    name: 'Police Stations',
+    name: 'Kantor Polisi',
     icon: 'shield',
     color: '#3b82f6',
-    osmTags: [
-      { key: 'amenity', value: 'police' }
-    ],
-    includeWay: true,
+    osmTags: [{ key: 'amenity', value: 'police' }],
   },
   {
     id: 'hospital',
-    name: 'Hospitals',
+    name: 'Rumah Sakit',
     icon: 'hospital',
     color: '#ef4444',
     osmTags: [
@@ -24,7 +21,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'station',
-    name: 'Stations',
+    name: 'Stasiun',
     icon: 'train',
     color: '#8b5cf6',
     osmTags: [
@@ -35,7 +32,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'terminal',
-    name: 'Bus Terminals',
+    name: 'Terminal Bus',
     icon: 'bus',
     color: '#f59e0b',
     osmTags: [
@@ -46,7 +43,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'airport',
-    name: 'Airports',
+    name: 'Bandara',
     icon: 'plane',
     color: '#06b6d4',
     osmTags: [{ key: 'aeroway', value: 'aerodrome' }],
@@ -54,14 +51,14 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'fuel',
-    name: 'Gas Stations',
+    name: 'Pom Bensin',
     icon: 'fuel',
     color: '#10b981',
     osmTags: [{ key: 'amenity', value: 'fuel' }],
   },
   {
     id: 'tourist',
-    name: 'Tourist Attractions',
+    name: 'Objek Wisata',
     icon: 'camera',
     color: '#ec4899',
     osmTags: [
@@ -73,7 +70,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'workshop',
-    name: 'Workshops',
+    name: 'Bengkel',
     icon: 'wrench',
     color: '#64748b',
     osmTags: [
@@ -84,11 +81,26 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'worship',
-    name: 'Worship Place',
+    name: 'Tempat Ibadah',
     icon: 'landmark',
     color: '#0ea5e9',
     osmTags: [{ key: 'amenity', value: 'place_of_worship' }],
     includeWay: true,
+  },
+  {
+    // Pos Pam = Pos Pengamanan sementara kepolisian (Operasi Ketupat, dll)
+    // Di OSM biasanya ditag sebagai amenity=police dengan nama mengandung "Pos Pam"
+    // atau highway=rest_area dengan nama Pos Pam
+    // Karena sifatnya sementara, banyak yang belum ada di OSM
+    // sehingga data utamanya dari Supabase (custom)
+    id: 'pospam',
+    name: 'Pos Pengamanan',
+    icon: 'siren',
+    color: '#dc2626',
+    osmTags: [
+      { key: 'amenity', value: 'police' },
+      { key: 'highway', value: 'rest_area' },
+    ],
   },
 ];
 
@@ -98,5 +110,4 @@ export const MIN_RADIUS = 1;
 export const MAX_RADIUS = 20;
 export const DEFAULT_RADIUS = 2;
 
-// ← Kosong: tidak ada kategori yang dipilih saat pertama buka
 export const DEFAULT_SELECTED_CATEGORIES: string[] = [];

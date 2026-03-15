@@ -12,7 +12,7 @@ Aplikasi web untuk mencari dan menampilkan fasilitas umum di sekitar lokasi peng
 | **React Leaflet** | Komponen peta interaktif |
 | **Leaflet.js** | Library peta dasar |
 | **Overpass API** | Query data fasilitas dari OpenStreetMap |
-| **OpenStreetMap OAuth 2.0** | Autentikasi untuk edit data OSM |
+| **OpenStreetMap OAuth 2.0** | Autentikasi untuk edit & tambah data |
 | **Supabase** | Database PostgreSQL untuk data fasilitas custom |
 | **Tailwind CSS** | Styling utility-first |
 | **shadcn/ui** | Komponen UI (Button, Slider, Badge, dll) |
@@ -27,9 +27,11 @@ Aplikasi web untuk mencari dan menampilkan fasilitas umum di sekitar lokasi peng
 - Menampilkan peta berbasis OpenStreetMap
 - Mendeteksi lokasi pengguna secara otomatis (Geolocation API)
 - Lingkaran radius pencarian divisualisasikan di peta
-- Marker lokasi pengguna ditandai dengan warna biru
+- Marker lokasi pengguna ditandai dengan ikon khusus
+- Setiap marker memiliki ikon SVG unik sesuai kategori fasilitasnya
 
 ### 🔍 Pencarian Fasilitas
+- Tidak ada kategori terpilih saat pertama buka — user memilih sendiri kategori yang diinginkan
 - Pencarian fasilitas berdasarkan kategori yang dipilih
 - Radius pencarian dapat disesuaikan (1–20 km)
 - Data diambil real-time dari Overpass API
@@ -37,21 +39,26 @@ Aplikasi web untuk mencari dan menampilkan fasilitas umum di sekitar lokasi peng
 - Fallback otomatis ke 3 server Overpass jika salah satu gagal
 
 ### 📂 Kategori Fasilitas
-| Kategori | Tag OSM |
-|---|---|
-| Police Stations | `amenity=police` |
-| Hospitals | `amenity=hospital`, `amenity=clinic` |
-| Stations | `railway=station`, `railway=halt` |
-| Bus Terminals | `amenity=bus_station`, `highway=bus_stop` |
-| Airports | `aeroway=aerodrome` |
-| Gas Stations | `amenity=fuel` |
-| Tourist Attractions | `tourism=attraction/museum/viewpoint` |
-| Workshops | `shop=car_repair`, `amenity=vehicle_inspection` |
-| Worship Places | `amenity=place_of_worship` |
+| Kategori | Tag OSM | Icon |
+|---|---|---|
+| Police Stations | `amenity=police` | 🛡️ Shield |
+| Hospitals | `amenity=hospital`, `amenity=clinic` | ✚ Cross |
+| Stations | `railway=station`, `railway=halt` | 🚂 Train |
+| Bus Terminals | `amenity=bus_station`, `highway=bus_stop` | 🚌 Bus |
+| Airports | `aeroway=aerodrome` | ✈️ Plane |
+| Gas Stations | `amenity=fuel` | ⛽ Fuel |
+| Tourist Attractions | `tourism=attraction/museum/viewpoint` | 📷 Camera |
+| Workshops | `shop=car_repair`, `amenity=vehicle_inspection` | ⚙️ Wrench |
+| Worship Places | `amenity=place_of_worship` | ⛪ Landmark |
+| Pos Pengamanan | `amenity=police` | 🚨 Siren |
+
+> **Pos Pengamanan** adalah posko sementara kepolisian (Operasi Ketupat, dll) untuk menjaga keamanan dan kelancaran lalu lintas saat arus mudik/balik. Karena sifatnya sementara, banyak yang belum ada di OSM sehingga data utamanya ditambahkan melalui fitur Data Lokal.
 
 ### 📍 Popup Informasi Fasilitas
 Setiap marker menampilkan informasi lengkap:
 - Nama dan kategori fasilitas
+- Badge "Data Lokal" untuk fasilitas dari Supabase
+- Badge "Belum di OSM" untuk fasilitas yang belum terdaftar di OSM
 - Alamat
 - Nomor telepon (klik untuk langsung menelepon)
 - Jam operasional
@@ -62,14 +69,28 @@ Setiap marker menampilkan informasi lengkap:
 
 ### ✏️ Edit Data OSM
 - Login dengan akun OpenStreetMap melalui OAuth 2.0
-- Melengkapi data fasilitas yang belum lengkap di OSM langsung dari aplikasi
+- Melengkapi data fasilitas OSM yang belum lengkap langsung dari aplikasi
 - Field yang bisa dilengkapi: telepon, jam buka, website, operator, alamat, email, Facebook, Instagram
 - Perubahan langsung dikirim ke database OpenStreetMap global
-- Tombol edit hanya muncul untuk data dari OSM (bukan data lokal)
+- Tombol edit hanya muncul untuk data dari OSM saat sudah login
+
+### 📌 Tambah Lokasi Baru (Admin)
+- Hanya muncul saat sudah login OSM
+- Klik tombol **"Tambah Lokasi Baru"** di sidebar
+- Klik titik di peta → koordinat otomatis terisi
+- Isi detail fasilitas (nama, kategori, alamat, telepon, dll)
+- Data tersimpan ke Supabase dan langsung tampil di peta
+- Marker data lokal tampil dengan pin outline (berbeda dari data OSM)
+
+### 🗑️ Edit & Hapus Data Lokal (Admin)
+- Hanya muncul di popup marker Data Lokal saat sudah login OSM
+- Tombol **✏️ Edit** — buka modal edit dengan data terisi, simpan perubahan
+- Tombol **🗑️ Hapus** — konfirmasi hapus, marker langsung hilang dari peta
 
 ### 📱 Responsive Design
-- Tampilan desktop: sidebar selalu terlihat di kiri
-- Tampilan mobile: sidebar dapat dibuka/tutup dengan tombol menu
+- Tampilan desktop: sidebar selalu terlihat di kanan
+- Tampilan mobile: tombol hamburger di kanan atas, sidebar muncul dari kanan
+- Banner prompt muncul di tengah peta saat belum ada kategori dipilih
 
 ---
 
@@ -77,29 +98,32 @@ Setiap marker menampilkan informasi lengkap:
 
 ```
 ├── app/
-│   ├── page.tsx                    # Halaman utama
-│   ├── layout.tsx                  # Root layout
-│   ├── globals.css                 # Global styles
+│   ├── page.tsx                        # Halaman utama
+│   ├── layout.tsx                      # Root layout
+│   ├── globals.css                     # Global styles
 │   └── api/
 │       ├── auth/osm/
-│       │   ├── login/route.ts      # Redirect ke halaman login OSM
-│       │   ├── callback/route.ts   # Handle OAuth callback dari OSM
-│       │   └── logout/route.ts     # Hapus session login
-│       └── osm/
-│           └── edit/route.ts       # Proxy edit data ke OSM API
+│       │   ├── login/route.ts          # Redirect ke halaman login OSM
+│       │   ├── callback/route.ts       # Handle OAuth callback dari OSM
+│       │   └── logout/route.ts         # Hapus session login
+│       ├── osm/
+│       │   └── edit/route.ts           # Proxy edit data ke OSM API
+│       └── facilities/
+│           └── route.ts                # PUT & DELETE fasilitas custom (Supabase)
 ├── components/
-│   ├── FacilityMap.tsx             # Komponen peta utama
-│   ├── Sidebar.tsx                 # Panel kategori & radius
-│   ├── EditOsmForm.tsx             # Form edit data OSM
-│   ├── OsmLoginButton.tsx          # Tombol login/logout OSM
-│   └── MapSkeleton.tsx             # Loading skeleton peta
+│   ├── FacilityMap.tsx                 # Komponen peta utama + marker berikon
+│   ├── Sidebar.tsx                     # Panel kategori, radius & login OSM
+│   ├── EditOsmForm.tsx                 # Form edit data OSM
+│   ├── AddFacilityModal.tsx            # Modal tambah/edit fasilitas custom
+│   ├── OsmLoginButton.tsx              # Tombol login/logout + tambah lokasi
+│   └── MapSkeleton.tsx                 # Loading skeleton peta
 ├── lib/
-│   ├── constants.ts                # Definisi kategori & default values
-│   ├── overpass.ts                 # Fungsi query Overpass API
-│   ├── supabase.ts                 # Supabase client
-│   ├── types.ts                    # TypeScript interfaces
-│   └── utils.ts                    # Helper functions
-└── .env.local                      # Environment variables (tidak di-commit)
+│   ├── constants.ts                    # Definisi kategori & default values
+│   ├── overpass.ts                     # Fungsi query Overpass API
+│   ├── supabase.ts                     # Supabase client
+│   ├── types.ts                        # TypeScript interfaces
+│   └── utils.ts                        # Helper functions
+└── .env.local                          # Environment variables (tidak di-commit)
 ```
 
 ---
@@ -127,11 +151,11 @@ npm install
 ### 2. Setup Supabase
 
 1. Buat project baru di [supabase.com](https://supabase.com)
-2. Masuk ke **SQL Editor**, jalankan query berikut untuk membuat tabel yang dibutuhkan:
+2. Masuk ke **SQL Editor** → **New Query**, jalankan query berikut:
 
 ```sql
--- Tabel fasilitas custom (untuk menyimpan fasilitas yang belum ada di OSM)
-CREATE TABLE public.custom_facilities (
+-- Tabel fasilitas custom (data lokal yang belum ada di OSM)
+CREATE TABLE IF NOT EXISTS public.custom_facilities (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name          text NOT NULL,
   category      text NOT NULL,
@@ -150,9 +174,23 @@ CREATE TABLE public.custom_facilities (
 );
 
 ALTER TABLE public.custom_facilities DISABLE ROW LEVEL SECURITY;
+
+-- Auto-update kolom updated_at saat data diubah
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS set_updated_at ON public.custom_facilities;
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.custom_facilities
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 ```
 
-> Tabel ini dibutuhkan agar aplikasi tidak error saat fetch data, meskipun fitur tambah fasilitas custom tidak digunakan.
+> Tabel ini wajib dibuat agar aplikasi tidak error saat fetch data, meskipun fitur tambah fasilitas tidak digunakan.
 
 3. Catat **Project URL** dan **anon public key** dari **Settings → API**
 
@@ -224,20 +262,34 @@ Buka `https://<ngrok-url>` di browser (bukan `localhost:3000`) agar OAuth berfun
 
 ### Mencari Fasilitas
 1. Izinkan akses lokasi saat browser meminta
-2. Pilih satu atau lebih kategori di panel kiri
+2. Pilih satu atau lebih kategori di panel kanan
 3. Atur radius pencarian dengan slider
 4. Klik tombol **"Cari Fasilitas"**
-5. Marker fasilitas akan muncul di peta
+5. Marker fasilitas akan muncul di peta dengan ikon sesuai kategori
 6. Klik marker untuk melihat detail dan mendapatkan rute
 
 ### Melengkapi Data Fasilitas di OSM
-1. Klik tombol **"Login OSM"** di panel kiri
+1. Klik tombol **"Login OSM"** di panel kanan
 2. Login dengan akun OpenStreetMap Anda
-3. Klik marker fasilitas yang ingin dilengkapi datanya
+3. Klik marker fasilitas OSM yang ingin dilengkapi datanya
 4. Di popup, klik tombol **"✏️ Lengkapi data di OSM"**
-5. Isi field yang ingin ditambahkan (tidak perlu semua, cukup yang ingin dilengkapi)
+5. Isi field yang ingin ditambahkan
 6. Klik **"💾 Simpan ke OSM"**
 7. Data akan langsung masuk ke database OpenStreetMap global
+
+### Menambah Lokasi Baru
+1. Login OSM terlebih dahulu
+2. Klik tombol **"Tambah Lokasi Baru"** di panel kanan (muncul setelah login)
+3. Kursor berubah menjadi crosshair — klik titik lokasi di peta
+4. Modal form terbuka dengan koordinat sudah terisi otomatis
+5. Isi nama, pilih kategori, lengkapi detail lainnya
+6. Klik **"Simpan Lokasi"** — marker langsung muncul di peta
+
+### Edit & Hapus Data Lokal
+1. Login OSM terlebih dahulu
+2. Klik marker berlabel **"Data Lokal"** di peta
+3. Di popup, klik **✏️ Edit** untuk mengubah data atau **🗑️ Hapus** untuk menghapus
+4. Konfirmasi hapus jika dipilih — marker langsung hilang dari peta
 
 ---
 
