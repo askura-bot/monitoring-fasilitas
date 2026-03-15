@@ -99,7 +99,7 @@ Setiap marker menampilkan informasi lengkap:
 │   ├── supabase.ts                 # Supabase client
 │   ├── types.ts                    # TypeScript interfaces
 │   └── utils.ts                    # Helper functions
-└── .env.local                      # Environment variables
+└── .env.local                      # Environment variables (tidak di-commit)
 ```
 
 ---
@@ -127,10 +127,10 @@ npm install
 ### 2. Setup Supabase
 
 1. Buat project baru di [supabase.com](https://supabase.com)
-2. Masuk ke **SQL Editor**, jalankan query berikut untuk membuat tabel:
+2. Masuk ke **SQL Editor**, jalankan query berikut untuk membuat tabel yang dibutuhkan:
 
 ```sql
--- Tabel fasilitas custom
+-- Tabel fasilitas custom (untuk menyimpan fasilitas yang belum ada di OSM)
 CREATE TABLE public.custom_facilities (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name          text NOT NULL,
@@ -151,6 +151,8 @@ CREATE TABLE public.custom_facilities (
 
 ALTER TABLE public.custom_facilities DISABLE ROW LEVEL SECURITY;
 ```
+
+> Tabel ini dibutuhkan agar aplikasi tidak error saat fetch data, meskipun fitur tambah fasilitas custom tidak digunakan.
 
 3. Catat **Project URL** dan **anon public key** dari **Settings → API**
 
@@ -180,7 +182,7 @@ ngrok http 3000
 
 Salin URL HTTPS yang diberikan ngrok (contoh: `https://xxxx.ngrok-free.app`).
 
-Update Redirect URI di pengaturan OAuth OSM dengan URL ngrok terbaru setiap kali ngrok di-restart.
+> ⚠️ URL ngrok berubah setiap kali ngrok di-restart. Update `NEXTAUTH_URL`, `OSM_REDIRECT_URI` di `.env.local`, dan Redirect URI di pengaturan OAuth OSM setiap kali URL berubah.
 
 ---
 
@@ -233,7 +235,7 @@ Buka `https://<ngrok-url>` di browser (bukan `localhost:3000`) agar OAuth berfun
 2. Login dengan akun OpenStreetMap Anda
 3. Klik marker fasilitas yang ingin dilengkapi datanya
 4. Di popup, klik tombol **"✏️ Lengkapi data di OSM"**
-5. Isi field yang ingin ditambahkan
+5. Isi field yang ingin ditambahkan (tidak perlu semua, cukup yang ingin dilengkapi)
 6. Klik **"💾 Simpan ke OSM"**
 7. Data akan langsung masuk ke database OpenStreetMap global
 
@@ -241,21 +243,119 @@ Buka `https://<ngrok-url>` di browser (bukan `localhost:3000`) agar OAuth berfun
 
 ## Deployment ke Production
 
-### Yang perlu diubah di `.env`:
+### 1. Siapkan Environment Variables di VPS
+
+Buat file `.env.production` di root project di VPS:
 
 ```bash
-# Ganti URL ngrok dengan domain production
+# Ganti semua URL ngrok dengan domain production
 NEXTAUTH_URL=https://domainanda.com
 OSM_REDIRECT_URI=https://domainanda.com/api/auth/osm/callback
+OSM_OAUTH_URL=https://www.openstreetmap.org
+OSM_API_URL=https://api.openstreetmap.org
+OSM_CLIENT_ID=your_client_id
+OSM_CLIENT_SECRET=your_client_secret
+
+# Supabase tetap sama seperti development
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
 ```
 
-### Yang perlu diupdate di OpenStreetMap:
-- Tambahkan domain production ke **Redirect URIs** di pengaturan OAuth aplikasi
+> ⚠️ Jangan commit file `.env.production` ke git.
 
-### Catatan production:
-- Supabase yang dipakai saat development bisa langsung digunakan untuk production
+---
+
+### 2. Update Redirect URI di OpenStreetMap
+
+Buka [openstreetmap.org](https://www.openstreetmap.org) → My Settings → OAuth 2 Applications → edit aplikasi → tambahkan domain production ke **Redirect URIs**:
+
+```
+https://domainanda.com/api/auth/osm/callback
+```
+
+---
+
+### 3. Build & Jalankan di VPS
+
+```bash
+# Clone repository
+git clone <repo-url>
+cd facility-monitor
+
+# Install dependencies
+npm install
+
+# Build untuk production (wajib sebelum menjalankan)
+npm run build
+
+# Jalankan server production
+npm run start
+```
+
+> `npm run build` mengompilasi semua kode TypeScript + React menjadi JavaScript yang dioptimasi untuk production. **Wajib dijalankan setiap kali ada perubahan kode** sebelum `npm run start`.
+
+---
+
+### 4. Menjalankan dengan PM2 (Recommended)
+
+PM2 memastikan aplikasi tetap berjalan meski terminal ditutup atau VPS di-restart.
+
+```bash
+# Install PM2 secara global
+npm install -g pm2
+
+# Pastikan sudah build terlebih dahulu
+npm run build
+
+# Jalankan aplikasi dengan PM2
+pm2 start npm --name "facility-monitor" -- start
+
+# Agar otomatis jalan saat VPS restart
+pm2 startup
+pm2 save
+```
+
+**Perintah PM2 yang berguna:**
+
+```bash
+pm2 status                        # cek status semua app
+pm2 logs facility-monitor         # lihat logs realtime
+pm2 restart facility-monitor      # restart app
+pm2 stop facility-monitor         # stop app
+```
+
+---
+
+### 5. Update Kode di Production
+
+Setiap kali ada perubahan kode, lakukan langkah berikut di VPS:
+
+```bash
+git pull                          # ambil kode terbaru
+npm install                       # jika ada dependency baru
+npm run build                     # build ulang (wajib)
+pm2 restart facility-monitor      # restart app
+```
+
+---
+
+### Perbedaan Development vs Production
+
+| | `npm run dev` | `npm run build` + `npm run start` |
+|---|---|---|
+| Tujuan | Development lokal | Production di VPS |
+| Kecepatan | Lambat (compile saat request) | Cepat (sudah dikompilasi) |
+| Hot reload | Ada (perubahan langsung terlihat) | Tidak ada |
+| Optimasi kode | Tidak | Ya (minify, tree-shaking) |
+| Tempat dijalankan | Laptop | VPS/server |
+
+---
+
+### Catatan Production
+
+- Supabase yang dipakai saat development **bisa langsung digunakan** untuk production tanpa perlu buat project baru
 - Aktifkan Row Level Security (RLS) di Supabase untuk keamanan production
-- File `.env.local` tidak perlu dibuat di VPS — gunakan environment variables sistem atau file `.env.production`
+- File `.env.local` tidak perlu dibuat di VPS — gunakan `.env.production` atau environment variables sistem
 
 ---
 
@@ -279,3 +379,4 @@ Kontribusi Anda akan bermanfaat untuk semua pengguna OpenStreetMap di seluruh du
 - [Overpass Turbo](https://overpass-turbo.eu) — playground untuk eksplorasi data OSM
 - [React Leaflet Docs](https://react-leaflet.js.org) — dokumentasi komponen peta
 - [Supabase Docs](https://supabase.com/docs) — dokumentasi database
+- [PM2 Docs](https://pm2.keymetrics.io/docs) — dokumentasi process manager
