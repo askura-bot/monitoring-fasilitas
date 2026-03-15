@@ -6,7 +6,10 @@ export const CATEGORIES: Category[] = [
     name: 'Kantor Polisi',
     icon: 'shield',
     color: '#3b82f6',
-    osmTags: [{ key: 'amenity', value: 'police' }],
+    osmTags: [
+      { key: 'amenity', value: 'police' }
+    ],
+    includeWay: true,
   },
   {
     id: 'hospital',
