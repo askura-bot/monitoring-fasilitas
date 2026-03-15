@@ -1,6 +1,5 @@
 'use client';
 
-import { Category } from '@/lib/types';
 import { CATEGORIES, MIN_RADIUS, MAX_RADIUS } from '@/lib/constants';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import {
   Fuel, Camera, Wrench, Landmark, MapPin, X, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import OsmLoginButton from '@/components/OsmLoginButton';
 
 interface SidebarProps {
   selectedCategories: string[];
@@ -21,7 +21,7 @@ interface SidebarProps {
   onRefresh: () => void;
   isMobileOpen: boolean;
   onMobileClose: () => void;
-  hasSearched: boolean; // ← prop baru
+  hasSearched: boolean;
 }
 
 const iconMap: Record<string, any> = {
@@ -66,6 +66,7 @@ export default function Sidebar({
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
+        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-blue-600" />
@@ -74,6 +75,11 @@ export default function Sidebar({
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose}>
             <X className="h-5 w-5" />
           </Button>
+        </div>
+
+        {/* Login OSM */}
+        <div className="px-4 py-2 border-b bg-gray-50">
+          <OsmLoginButton />
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -110,7 +116,8 @@ export default function Sidebar({
             {noneSelected && (
               <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  Pilih minimal satu kategori lalu klik <strong>"Cari Fasilitas"</strong> untuk mulai pencarian.
+                  Pilih minimal satu kategori lalu klik{' '}
+                  <strong>"Cari Fasilitas"</strong> untuk mulai pencarian.
                 </p>
               </div>
             )}
@@ -156,7 +163,7 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Tombol search + info */}
+          {/* Tombol search */}
           <div className="pt-4 border-t space-y-2">
             <Button
               onClick={onRefresh}
