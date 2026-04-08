@@ -1,3 +1,4 @@
+// components/ui/Sidebar.tsx
 'use client';
 
 import { CATEGORIES, MIN_RADIUS, MAX_RADIUS } from '@/lib/constants';

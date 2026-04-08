@@ -58,10 +58,28 @@ export default function AdminPanel({
   const handleDelete = async (id: string) => {
     if (!confirm('Hapus fasilitas ini?')) return;
     setDeletingId(id);
-    await supabase.from('custom_facilities').delete().eq('id', id);
-    setDeletingId(null);
-    fetchFacilities();
-    onFacilitiesChanged();
+    
+    try {
+      // GANTI CARA LAMA:
+      // await supabase.from('custom_facilities').delete().eq('id', id);
+      
+      // GUNAKAN CARA BARU (VIA API):
+      const res = await fetch('/api/facilities', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal menghapus data');
+      
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeletingId(null);
+      fetchFacilities();
+      onFacilitiesChanged();
+    }
   };
 
   const handleFormSuccess = () => {

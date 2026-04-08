@@ -1,3 +1,4 @@
+// components/ui/OsmLoginButton.tsx
 'use client';
 
 import { useEffect, useState } from 'react';

@@ -1,3 +1,4 @@
+// lib/contants.ts
 import { Category } from './types';
 
 export const CATEGORIES: Category[] = [

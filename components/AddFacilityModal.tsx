@@ -1,3 +1,4 @@
+// components/ui/AddFacilityModal.tsx
 'use client';
 
 import { useState } from 'react';
@@ -77,7 +78,7 @@ export default function AddFacilityModal({
 
     try {
       if (isEditing && editingData?.id) {
-        // Mode edit — pakai API route (perlu auth check)
+        // Mode edit — pakai API route (PUT)
         const res = await fetch('/api/facilities', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -86,9 +87,15 @@ export default function AddFacilityModal({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Gagal mengupdate data.');
       } else {
-        // Mode tambah — langsung ke Supabase
-        const { error: err } = await supabase.from('custom_facilities').insert([form]);
-        if (err) throw err;
+        // INI YANG DIUBAH: Mode tambah — sekarang pakai API route (POST) juga!
+        const res = await fetch('/api/facilities', {
+          method: 'POST', // Ganti jadi POST
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal menambah data.');
       }
 
       setIsSuccess(true);
